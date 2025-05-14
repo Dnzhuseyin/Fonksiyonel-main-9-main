@@ -10,7 +10,8 @@ enum class CancerType {
     BENIGN,
     MELANOMA,
     BASAL_CELL_CARCINOMA,
-    SQUAMOUS_CELL_CARCINOMA
+    SQUAMOUS_CELL_CARCINOMA,
+    UNKNOWN
 }
 
 enum class RiskLevel {
