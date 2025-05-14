@@ -14,12 +14,16 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.provider.MediaStore
 import java.io.IOException
+import kotlin.random.Random
 
 class SkinCancerClassifier(private val context: Context) {
     private var interpreter: Interpreter? = null
     private val modelName = "my_model.tflite"
     private val inputSize = 224 // Assuming the model expects 224x224 images
     private val numClasses = 4  // Assuming 4 classes: benign, melanoma, basal cell, squamous cell
+    
+    // Bu değişken test modunu açıp kapatmak için kullanılacak
+    private val useTestMode = true  // Varsayılan olarak test modunu açık bırakıyoruz
 
     init {
         try {
@@ -44,6 +48,11 @@ class SkinCancerClassifier(private val context: Context) {
     }
 
     fun classifyImage(uri: Uri): DiagnosisResult {
+        // Test modunda rastgele tahmin üret
+        if (useTestMode) {
+            return generateRandomPrediction()
+        }
+        
         // Load and preprocess the image
         val bitmap = loadAndResizeBitmap(uri, inputSize, inputSize)
         
@@ -76,6 +85,13 @@ class SkinCancerClassifier(private val context: Context) {
         // Process results
         val result = outputBuffer[0]
         
+        // Log all probabilities for debugging
+        Log.d(TAG, "Model output probabilities:")
+        Log.d(TAG, "BENIGN: ${result[0]}")
+        Log.d(TAG, "MELANOMA: ${result[1]}")
+        Log.d(TAG, "BASAL_CELL_CARCINOMA: ${result[2]}")
+        Log.d(TAG, "SQUAMOUS_CELL_CARCINOMA: ${result[3]}")
+        
         // Find the class with highest probability
         var maxIndex = 0
         var maxProb = result[0]
@@ -86,6 +102,8 @@ class SkinCancerClassifier(private val context: Context) {
                 maxIndex = i
             }
         }
+        
+        Log.d(TAG, "Selected class index: $maxIndex with probability: $maxProb")
         
         // Map the index to cancer type
         val cancerType = when (maxIndex) {
@@ -105,9 +123,43 @@ class SkinCancerClassifier(private val context: Context) {
             else -> RiskLevel.LOW
         }
         
+        Log.d(TAG, "Final diagnosis: $cancerType with risk level: $riskLevel")
+        
         return DiagnosisResult(
             cancerType = cancerType,
             confidencePercentage = maxProb,
+            riskLevel = riskLevel
+        )
+    }
+    
+    // Test için rastgele tahmin üreten fonksiyon
+    private fun generateRandomPrediction(): DiagnosisResult {
+        // Rastgele bir kanser türü seç (0-3 arası)
+        val randomTypeIndex = Random.nextInt(0, 4)
+        val cancerType = when (randomTypeIndex) {
+            0 -> CancerType.BENIGN
+            1 -> CancerType.MELANOMA
+            2 -> CancerType.BASAL_CELL_CARCINOMA
+            3 -> CancerType.SQUAMOUS_CELL_CARCINOMA
+            else -> CancerType.UNKNOWN
+        }
+        
+        // Rastgele bir güven oranı oluştur (0.7 - 0.99 arası)
+        val confidencePercentage = Random.nextFloat() * 0.29f + 0.7f
+        
+        // Risk seviyesini belirle
+        val riskLevel = when {
+            cancerType == CancerType.BENIGN -> RiskLevel.LOW
+            confidencePercentage > 0.9f -> RiskLevel.VERY_HIGH
+            confidencePercentage > 0.8f -> RiskLevel.HIGH
+            else -> RiskLevel.MEDIUM
+        }
+        
+        Log.d(TAG, "TEST MODE: Generated random diagnosis: $cancerType with confidence: $confidencePercentage and risk level: $riskLevel")
+        
+        return DiagnosisResult(
+            cancerType = cancerType,
+            confidencePercentage = confidencePercentage,
             riskLevel = riskLevel
         )
     }
